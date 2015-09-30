@@ -16,15 +16,7 @@
  */
 package org.apache.camel.component.splunk;
 
-public enum ProducerType {
-    TCP, SUBMIT, STREAM;
-
-    public static ProducerType fromUri(String uri) {
-        for (ProducerType producerType : ProducerType.values()) {
-            if (producerType.name().equalsIgnoreCase(uri)) {
-                return producerType;
-            }
-        }
-        throw new RuntimeException("Unable to construct producerType from uri : " + uri);
-    }
+public final class SplunkConstants {
+    public static final String ROW_COUNT = "CamelSplunkRowCount";
+    public static final String LAST_READ_TIME = "CamelSplunkLastReadTime";
 }

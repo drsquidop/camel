@@ -53,8 +53,18 @@ public class SplunkEndpoint extends ScheduledPollEndpoint {
     public Producer createProducer() throws Exception {
         String[] uriSplit = splitUri(getEndpointUri());
         if (uriSplit.length > 0) {
-            ProducerType producerType = ProducerType.fromUri(uriSplit[0]);
-            return new SplunkProducer(this, producerType);
+            ProducerType producerType = null;
+            try {
+                producerType = ProducerType.fromUri(uriSplit[0]);
+                return new SplunkProducer(this, producerType);
+            } catch (RuntimeException e) {}
+            if (producerType == null) {
+                //if its not a pure producer, see if its a search
+                ConsumerType consumerType = ConsumerType.fromUri(uriSplit[0]);
+                SplunkQueryProducer producer = new SplunkQueryProducer(this, consumerType);
+                //configureConsumer(producer);
+                return producer;
+            }
         }
         throw new IllegalArgumentException("Cannot create any producer with uri " + getEndpointUri() + ". A producer type was not provided (or an incorrect pairing was used).");
     }

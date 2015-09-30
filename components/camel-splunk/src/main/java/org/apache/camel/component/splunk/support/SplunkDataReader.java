@@ -19,10 +19,7 @@ package org.apache.camel.component.splunk.support;
 import java.io.InputStream;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 
 import com.splunk.Job;
 import com.splunk.JobArgs;
@@ -62,6 +59,14 @@ public class SplunkDataReader {
 
     public int getCount() {
         return endpoint.getConfiguration().getCount();
+    }
+
+    public Calendar getLastSuccesfulReadTime() {
+        return lastSuccessfulReadTime;
+    }
+
+    public void setLastSuccessfulReadTime(Calendar lastSuccessfulReadTime) {
+        this.lastSuccessfulReadTime = lastSuccessfulReadTime;
     }
 
     public String getSearch() {
@@ -120,6 +125,7 @@ public class SplunkDataReader {
             result = calculateEarliestTimeForRealTime(startTime);
         } else {
             DateFormat df = new SimpleDateFormat(DATE_FORMAT);
+            df.setTimeZone(TimeZone.getTimeZone("GMT"));
             result = df.format(lastSuccessfulReadTime.getTime());
         }
         return result;
@@ -151,16 +157,18 @@ public class SplunkDataReader {
     }
 
     private String getLatestTime(Calendar startTime, boolean realtime) {
-        String lTime;
+        String lTime = null;
         if (ObjectHelper.isNotEmpty(getLatestTime())) {
             lTime = getLatestTime();
         } else {
             if (realtime) {
                 lTime = "rt";
-            } else {
+            }
+            /*NOTE - set no rolling latest time unless it was initially set
+            else {
                 DateFormat df = new SimpleDateFormat(DATE_FORMAT);
                 lTime = df.format(startTime.getTime());
-            }
+            }*/
         }
         return lTime;
     }
@@ -239,8 +247,10 @@ public class SplunkDataReader {
         queryArgs.setExecutionMode(ExecutionMode.NORMAL);
         Calendar startTime = Calendar.getInstance();
         populateArgs(queryArgs, startTime, false);
+        //queryArgs.setMaximumCount(0); //return all results
 
         List<SplunkEvent> data = runQuery(queryArgs, false, callback);
+        //TODO the server time zone may not be the same as the client timezone.  Consider using the _time of the last result as the cutoff time
         lastSuccessfulReadTime = startTime;
         return data;
     }
@@ -262,10 +272,11 @@ public class SplunkDataReader {
     private List<SplunkEvent> runQuery(JobArgs queryArgs, boolean realtime, SplunkResultProcessor callback) throws Exception {
         Service service = endpoint.getService();
         Job job = service.getJobs().create(getSearch(), queryArgs);
-        LOG.debug("Running search : {} with queryArgs : {}", getSearch(), queryArgs);
+        LOG.info("Running search : {} with queryArgs : {}", getSearch(), queryArgs);
         if (realtime) {
             while (!job.isReady()) {
-                Thread.sleep(500);
+                Thread.sleep(1000);
+                LOG.debug("waiting for isReady");
             }
             // Besides job.isReady there must be some delay before real time job
             // is ready
@@ -274,9 +285,12 @@ public class SplunkDataReader {
             Thread.sleep(4000);
         } else {
             while (!job.isDone()) {
-                Thread.sleep(500);
+                Thread.sleep(1000);
+                LOG.debug("waiting for isDone, {} available, {} progress",job.getEventAvailableCount(), job.getDoneProgress());
+                job.refresh();
             }
         }
+        //LOG.debug("search complete: latest={}, search_latest={}",job.getLatestTime(), job.getSearchLatestTime());
         return extractData(job, realtime, callback);
     }
 
@@ -290,20 +304,23 @@ public class SplunkDataReader {
             total = job.getResultPreviewCount();
         } else {
             total = job.getResultCount();
+            LOG.debug("job has {} results", total);
         }
-        if (getCount() == 0 || total < getCount()) {
-            InputStream stream = null;
+        //if getCount is 0 get all the results, otherwise limit the results
+        int maxCount = (getCount() == 0) ? total : getCount();
+        //int count = 0;
+        int offset = 0;
+        while (offset < total) {
+            InputStream stream;
             JobResultsArgs outputArgs = new JobResultsArgs();
             outputArgs.setOutputMode(OutputMode.JSON);
+            outputArgs.setCount(maxCount);
+            outputArgs.setOffset(offset);
             if (realtime) {
-                if (getCount() > 0) {
-                    outputArgs.setCount(getCount());
-                }
                 stream = job.getResultsPreview(outputArgs);
             } else {
                 stream = job.getResults(outputArgs);
             }
-
             resultsReader = new ResultsReaderJson(stream);
             while ((data = resultsReader.getNextEvent()) != null) {
                 splunkData = new SplunkEvent(data);
@@ -312,33 +329,10 @@ public class SplunkDataReader {
                 } else {
                     result.add(splunkData);
                 }
+                offset ++;
             }
             IOHelper.close(stream);
-        } else {
-            int offset = 0;
-            while (offset < total) {
-                InputStream stream;
-                JobResultsArgs outputArgs = new JobResultsArgs();
-                outputArgs.setOutputMode(OutputMode.JSON);
-                outputArgs.setCount(getCount());
-                outputArgs.setOffset(offset);
-                if (realtime) {
-                    stream = job.getResultsPreview(outputArgs);
-                } else {
-                    stream = job.getResults(outputArgs);
-                }
-                resultsReader = new ResultsReaderJson(stream);
-                while ((data = resultsReader.getNextEvent()) != null) {
-                    splunkData = new SplunkEvent(data);
-                    if (callback != null) {
-                        callback.process(splunkData);
-                    } else {
-                        result.add(splunkData);
-                    }
-                }
-                offset += getCount();
-                IOHelper.close(stream);
-            }
+            LOG.debug("Retrieved {} results", offset);
         }
         if (resultsReader != null) {
             resultsReader.close();
