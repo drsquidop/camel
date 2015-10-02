@@ -25,7 +25,7 @@
   </parent>
 
   <name>Camel :: Splunk</name>
-  <artifactId>camel-splunk-b2</artifactId>
+  <artifactId>camel-splunk</artifactId>
   <description>Camel :: Splunk component</description>
   <packaging>bundle</packaging>
 
