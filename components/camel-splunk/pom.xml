@@ -30,7 +30,7 @@
   <packaging>bundle</packaging>
 
   <properties>
-    <splunk-version>1.4.0.0_1</splunk-version>
+    <!--<splunk-version>1.4.0.0_1</splunk-version>-->
     <camel.osgi.import.before.defaults>
       org.joda.time.*;version="[1.6,3)"
     </camel.osgi.import.before.defaults>

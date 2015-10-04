@@ -66,7 +66,7 @@ public class SplunkQueryProducer extends DefaultProducer {
             //if a LAST_SEARCH_TIME is provided, it takes precedence over the initEarliestTime parameter
             Calendar lastReadTime;
             DateFormat df = new SimpleDateFormat(DATE_FORMAT);
-            df.setTimeZone(TimeZone.getTimeZone("GMT"));
+            //TODO restore df.setTimeZone(TimeZone.getTimeZone("GMT"));
 
             if (!ObjectHelper.isEmpty(exchange.getIn().getHeader(SplunkConstants.LAST_READ_TIME))) {
                 lastReadTime = Calendar.getInstance();

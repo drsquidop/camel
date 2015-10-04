@@ -37,6 +37,7 @@ public abstract class SplunkTest extends CamelTestSupport {
         splunkEvent.addPair("key2", "value2");
         splunkEvent.addPair("key3", "value3");
         template.sendBody("direct:submit", splunkEvent);
+//        template.sendBody("direct:submit", "{\"key1\":\"value1\",\"key2\":\"value2\",\"key3\":\"value3\",\"key5\":5}");
     }
 
 }

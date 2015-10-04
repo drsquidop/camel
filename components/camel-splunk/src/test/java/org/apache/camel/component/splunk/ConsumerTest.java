@@ -46,6 +46,7 @@ public class ConsumerTest extends SplunkMockTestSupport {
         when(service.getJobs()).thenReturn(jobCollection);
         when(jobCollection.create(anyString(), any(JobArgs.class))).thenReturn(jobMock);
         when(jobMock.isDone()).thenReturn(Boolean.TRUE);
+        when(jobMock.getResultCount()).thenReturn(3);
         InputStream stream = ConsumerTest.class.getResourceAsStream("/resultsreader_test_data.json");
         when(jobMock.getResults(any(JobResultsArgs.class))).thenReturn(stream);
 

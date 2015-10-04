@@ -65,10 +65,6 @@ public class SplunkDataReader {
         return lastSuccessfulReadTime;
     }
 
-    public void setLastSuccessfulReadTime(Calendar lastSuccessfulReadTime) {
-        this.lastSuccessfulReadTime = lastSuccessfulReadTime;
-    }
-
     public String getSearch() {
         return endpoint.getConfiguration().getSearch();
     }
@@ -125,7 +121,8 @@ public class SplunkDataReader {
             result = calculateEarliestTimeForRealTime(startTime);
         } else {
             DateFormat df = new SimpleDateFormat(DATE_FORMAT);
-            df.setTimeZone(TimeZone.getTimeZone("GMT"));
+            //TODO this needs to pull from a property and ignore if not specified
+            //TODO restore df.setTimeZone(TimeZone.getTimeZone("GMT"));
             result = df.format(lastSuccessfulReadTime.getTime());
         }
         return result;
@@ -164,7 +161,11 @@ public class SplunkDataReader {
             if (realtime) {
                 lTime = "rt";
             }
-            /*NOTE - set no rolling latest time unless it was initially set
+            /*TODO set no rolling latest time unless it was initially set
+                consider purpose, if an initial rolling time is set, we should roll in some increment
+                until we get to now
+            */
+            /*
             else {
                 DateFormat df = new SimpleDateFormat(DATE_FORMAT);
                 lTime = df.format(startTime.getTime());
@@ -247,10 +248,9 @@ public class SplunkDataReader {
         queryArgs.setExecutionMode(ExecutionMode.NORMAL);
         Calendar startTime = Calendar.getInstance();
         populateArgs(queryArgs, startTime, false);
-        //queryArgs.setMaximumCount(0); //return all results
+        //TODO needed? queryArgs.setMaximumCount(0); //return all results
 
         List<SplunkEvent> data = runQuery(queryArgs, false, callback);
-        //TODO the server time zone may not be the same as the client timezone.  Consider using the _time of the last result as the cutoff time
         lastSuccessfulReadTime = startTime;
         return data;
     }
@@ -272,10 +272,10 @@ public class SplunkDataReader {
     private List<SplunkEvent> runQuery(JobArgs queryArgs, boolean realtime, SplunkResultProcessor callback) throws Exception {
         Service service = endpoint.getService();
         Job job = service.getJobs().create(getSearch(), queryArgs);
-        LOG.info("Running search : {} with queryArgs : {}", getSearch(), queryArgs);
+        LOG.debug("Running search : {} with queryArgs : {}", getSearch(), queryArgs);
         if (realtime) {
             while (!job.isReady()) {
-                Thread.sleep(1000);
+                Thread.sleep(500);
                 LOG.debug("waiting for isReady");
             }
             // Besides job.isReady there must be some delay before real time job
@@ -285,12 +285,10 @@ public class SplunkDataReader {
             Thread.sleep(4000);
         } else {
             while (!job.isDone()) {
-                Thread.sleep(1000);
-                LOG.debug("waiting for isDone, {} available, {} progress",job.getEventAvailableCount(), job.getDoneProgress());
-                job.refresh();
+                Thread.sleep(500);
             }
         }
-        //LOG.debug("search complete: latest={}, search_latest={}",job.getLatestTime(), job.getSearchLatestTime());
+        LOG.debug("search complete: latest={}, search_latest={}",job.getLatestTime(), job.getSearchLatestTime());
         return extractData(job, realtime, callback);
     }
 
@@ -307,9 +305,13 @@ public class SplunkDataReader {
             LOG.debug("job has {} results", total);
         }
         //if getCount is 0 get all the results, otherwise limit the results
+        //TODO the messages should be limited on the query, not on the retrieval.  Oldest messages may/maynot be returned earliest
         int maxCount = (getCount() == 0) ? total : getCount();
-        //int count = 0;
+        LOG.debug("extractData(): job is ready/done, total={}, endpoint.count={}", total, getCount());
+
         int offset = 0;
+
+        //TODO a test is to prime the system with over 100 messages
         while (offset < total) {
             InputStream stream;
             JobResultsArgs outputArgs = new JobResultsArgs();
@@ -317,6 +319,10 @@ public class SplunkDataReader {
             outputArgs.setCount(maxCount);
             outputArgs.setOffset(offset);
             if (realtime) {
+                //TODO grok this
+                if (getCount() > 0) {
+                    outputArgs.setCount(getCount());
+                }
                 stream = job.getResultsPreview(outputArgs);
             } else {
                 stream = job.getResults(outputArgs);
@@ -332,7 +338,6 @@ public class SplunkDataReader {
                 offset ++;
             }
             IOHelper.close(stream);
-            LOG.debug("Retrieved {} results", offset);
         }
         if (resultsReader != null) {
             resultsReader.close();

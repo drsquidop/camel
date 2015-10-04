@@ -59,6 +59,7 @@ public class SplunkQueryProducerTest extends SplunkMockTestSupport {
         when(jobMock.isDone()).thenReturn(Boolean.TRUE);
         InputStream stream = ProducerTest.class.getResourceAsStream("/resultsreader_test_data.json");
         when(jobMock.getResults(any(JobResultsArgs.class))).thenReturn(stream);
+        when(jobMock.getResultCount()).thenReturn(3);
 
         //verify expectations
         template.sendBody("direct:search", null);

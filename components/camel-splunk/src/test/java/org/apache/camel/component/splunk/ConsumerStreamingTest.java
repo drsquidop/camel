@@ -44,13 +44,14 @@ public class ConsumerStreamingTest extends SplunkMockTestSupport {
         when(service.getJobs()).thenReturn(jobCollection);
         when(jobCollection.create(anyString(), any(JobArgs.class))).thenReturn(jobMock);
         when(jobMock.isDone()).thenReturn(Boolean.TRUE);
+        when(jobMock.getResultCount()).thenReturn(3);
         InputStream stream = ConsumerTest.class.getResourceAsStream("/resultsreader_test_data.json");
         when(jobMock.getResults(any(JobResultsArgs.class))).thenReturn(stream);
 
         assertMockEndpointsSatisfied();
-        SplunkEvent recieved = searchMock.getReceivedExchanges().get(0).getIn().getBody(SplunkEvent.class);
-        assertNotNull(recieved);
-        Map<String, String> data = recieved.getEventData();
+        SplunkEvent received = searchMock.getReceivedExchanges().get(0).getIn().getBody(SplunkEvent.class);
+        assertNotNull(received);
+        Map<String, String> data = received.getEventData();
         assertEquals("indexertpool", data.get("name"));
         stream.close();
     }
