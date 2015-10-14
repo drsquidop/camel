@@ -29,15 +29,17 @@ public abstract class SplunkTest extends CamelTestSupport {
     protected static final String SPLUNK_PASSWORD = "preben1212";
     // should be created in splunk before test run;
     protected static final String INDEX = "junit";
+    String source=null;
 
     @Before
     public void init() throws Exception {
+        log.debug("@Before init(): source={}", source);
+
         SplunkEvent splunkEvent = new SplunkEvent();
         splunkEvent.addPair("key1", "value1");
         splunkEvent.addPair("key2", "value2");
         splunkEvent.addPair("key3", "value3");
         template.sendBody("direct:submit", splunkEvent);
-//        template.sendBody("direct:submit", "{\"key1\":\"value1\",\"key2\":\"value2\",\"key3\":\"value3\",\"key5\":5}");
     }
 
 }

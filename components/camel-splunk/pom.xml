@@ -29,6 +29,15 @@
   <description>Camel :: Splunk component</description>
   <packaging>bundle</packaging>
 
+  <profiles>
+      <profile>
+          <id>it</id>
+          <properties>
+              <skipITs>false</skipITs>
+          </properties>
+      </profile>
+  </profiles>
+
   <properties>
     <!--<splunk-version>1.4.0.0_1</splunk-version>-->
     <camel.osgi.import.before.defaults>
@@ -36,6 +45,8 @@
     </camel.osgi.import.before.defaults>
     <camel.osgi.export.pkg>org.apache.camel.component.splunk.*</camel.osgi.export.pkg>
     <camel.osgi.export.service>org.apache.camel.spi.ComponentResolver;component=splunk</camel.osgi.export.service>
+    <!--skip integration tests by default, override with -DskipITs=false, or -P it-->
+    <skipITs>true</skipITs>
   </properties>
 
   <dependencies>
@@ -90,5 +101,30 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
+
+  <build>
+      <plugins>
+          <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-failsafe-plugin</artifactId>
+              <executions>
+                  <execution>
+                      <goals>
+                          <goal>integration-test</goal>
+                          <goal>verify</goal>
+                      </goals>
+                  </execution>
+              </executions>
+          </plugin>
+          <plugin>
+              <groupId>org.apache.camel</groupId>
+              <artifactId>camel-package-maven-plugin</artifactId>
+              <configuration>
+                  <validate>false</validate>
+              </configuration>
+          </plugin>
+
+      </plugins>
+  </build>
 
 </project>

@@ -17,28 +17,31 @@
 package org.apache.camel.component.splunk.integration;
 
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.component.splunk.event.SplunkEvent;
+import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
-@Ignore("run manually since it requires a running local splunk server")
-public class SavedSearchTest extends SplunkTest {
-
-    // before run there should be created a saved search 'junit' in splunk
-
+public class NormalSearchIT extends SplunkTest {
     @Test
-    public void testSavedSearch() throws Exception {
-        MockEndpoint searchMock = getMockEndpoint("mock:search-saved");
+    public void testSearch() throws Exception {
+        log.debug("testSearch()");
+
+        assertNotNull(source);
+
+        MockEndpoint searchMock = getMockEndpoint("mock:search-result");
         searchMock.expectedMessageCount(1);
+        getMockEndpoint("mock:submit-result").expectedMessageCount(1);
 
         assertMockEndpointsSatisfied(20, TimeUnit.SECONDS);
-        SplunkEvent recieved = searchMock.getReceivedExchanges().get(0).getIn().getBody(SplunkEvent.class);
-        assertNotNull(recieved);
-        Map<String, String> data = recieved.getEventData();
+        SplunkEvent received = searchMock.getReceivedExchanges().get(0).getIn().getBody(SplunkEvent.class);
+        assertNotNull(received);
+        Map<String, String> data = received.getEventData();
         assertEquals("value1", data.get("key1"));
         assertEquals("value2", data.get("key2"));
         assertEquals("value3", data.get("key3"));
@@ -46,13 +49,17 @@ public class SavedSearchTest extends SplunkTest {
 
     @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
+        log.debug("createRouteBuilder()");
+        //routeBuilder is called before @Before.  since source is set in the endpoint, it must be set here
+        source = UUID.randomUUID().toString();
+
         return new RouteBuilder() {
             public void configure() {
-                from("direct:submit").to("splunk://submit?username=" + SPLUNK_USERNAME + "&password=" + SPLUNK_PASSWORD + "&index=" + INDEX + "&sourceType=testSource&source=test")
+                from("direct:submit").to("splunk://submit?username=" + SPLUNK_USERNAME + "&password=" + SPLUNK_PASSWORD + "&index=" + INDEX + "&sourceType=testSource&source=" + source)
                         .to("mock:submit-result");
 
-                from("splunk://savedsearch?delay=5s&username=" + SPLUNK_USERNAME + "&password=" + SPLUNK_PASSWORD + "&initEarliestTime=-10s&latestTime=now" + "&savedSearch=junit")
-                        .to("mock:search-saved");
+                from("splunk://normal?delay=5s&username=" + SPLUNK_USERNAME + "&password=" + SPLUNK_PASSWORD + "&initEarliestTime=-60s" + "&search=search index="
+                                + INDEX + " sourcetype=testSource source=" + source + " | fields key1, key2, key3").to("mock:search-result");
             }
         };
     }

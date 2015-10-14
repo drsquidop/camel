@@ -22,8 +22,9 @@ import org.apache.camel.component.splunk.event.SplunkEvent;
 import org.junit.Ignore;
 import org.junit.Test;
 
-@Ignore("run manually since it requires a running local splunk server")
-public class SplunkProducerTest extends SplunkTest {
+import java.util.UUID;
+
+public class SplunkProducerIT extends SplunkTest {
 
     // Splunk tcp reciever port configured in Splunk
     private static final String TCP_RECIEVER_PORT = "9997";
@@ -66,16 +67,19 @@ public class SplunkProducerTest extends SplunkTest {
 
     @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
+        //routeBuilder is called before @Before.  since source is set in the endpoint, it must be set here
+        source = UUID.randomUUID().toString();
+
         return new RouteBuilder() {
             public void configure() {
                 from("direct:stream").to("splunk://stream?username=" + SPLUNK_USERNAME + "&password=" + SPLUNK_PASSWORD + "&index=" + INDEX
-                                             + "&sourceType=StreamSourceType&source=StreamSource").to("mock:stream-result");
+                                             + "&sourceType=StreamSourceType&source=" + source).to("mock:stream-result");
 
-                from("direct:submit").to("splunk://submit?username=" + SPLUNK_USERNAME + "&password=" + SPLUNK_PASSWORD + "&index=" + INDEX + "&sourceType=testSource&source=test")
+                from("direct:submit").to("splunk://submit?username=" + SPLUNK_USERNAME + "&password=" + SPLUNK_PASSWORD + "&index=" + INDEX + "&sourceType=testSource&source=" + source)
                     .to("mock:submitresult");
 
                 from("direct:tcp").to("splunk://tcp?username=" + SPLUNK_USERNAME + "&password=" + SPLUNK_PASSWORD + "&tcpReceiverPort=" + TCP_RECIEVER_PORT + "&index=" + INDEX
-                                          + "&sourceType=testSource&source=test").to("mock:tcpresult");
+                                          + "&sourceType=testSource&source=" + source).to("mock:tcpresult");
             }
         };
     }
